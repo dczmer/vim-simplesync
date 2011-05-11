@@ -1,0 +1,55 @@
+ABOUT
+
+USAGE
+
+This plugin will install all files in open buffers to their destination
+directories.
+
+THIS IS NOT A SUBSTITUTE FOR RUNNING MAKE!
+This will only copy out files that are in open buffers, and only for
+those file which match the rules you explicitly defined in the config.
+
+Start by definging a map file somewhere and setting an environment variable,
+$SIMPLE_SYNC_CONFIG to point to it.
+
+This file should contain a JSON array of path patterns that match against
+a full file path and point to a destination directory. This is an array
+and not a hash, because hashes are not guaranteed to preserve order, and
+the array is. This allows you to 'chain' rules similar to the way iptables
+rules work. The first match will be used to determine the destination.
+
+Example (~/simple_sync_config):
+  [
+      [ "main\\/perllib(\\/.*\\.pm)$",       "$FIRMWARE/lib/perl5"   ],
+      [ "web\\/cgi(\\/.*\\.cgi)$",           "$FIRMWARE/web/cgi"     ],
+      [ "web\\/js(\\/.*\\.js)$",             "$FIRMWARE/web/js"      ],
+      [ "web\\/locale(\\/.*\\.txt)$",        "$FIRMWARE/web/locale"  ],
+      [ "web\\/etc(\\/.*\\.xml)$",           "$FIRMWARE/etc"         ]
+  ]
+
+If the $SIMPLE_SYNC_CONFIG environment variable is not set, does not point to
+an existing file, or does not contain a valid JSON array of 2-element
+sub-arrays, then $simple_sync_map will remain an empty hash reference and no
+path matches will succeed (does nothing).
+
+Once the $simple_sync_map hash has been loaded by calling SimpleSyncRefresh(),
+subsequent calls to SimpleSync() will use those cached values to perform the
+path matching.
+
+SimpleSync() will evaluate the full path and file name for each open buffer
+and look for a matching rule in $simple_sync_map by looking at the first
+element of each subarray (the source pattern), in order. The source pattern 
+is matched against the buffer's path and file name as a regular expression 
+and, if it matches, the second element in the sub-array is the base
+destination path. If no match is found then no action will be taken for this
+buffer.
+
+Once a destination base path is found the SimpleSync() method will then use
+the captured $1 value from the source pattern match and append it to the
+value of the second sub-array element (the destination base path) to produce
+the final destination path.
+
+Finally, SimpleSync() will check the timestamps of the source file and the
+destination file and will only install the new version if it is newer than
+the destination version. If the destination directory does not exist it will
+be created with 'mkdir -p'.
