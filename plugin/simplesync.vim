@@ -152,6 +152,9 @@ perl <<EOF
         $simple_sync_map = decode_json( join("\n", @json) );
         close($FH);
     }
+    else {
+        VIM::Msg("SIMPLE_SYNC_CONFIG not defined. Doing nothing.");
+    }
     # TODO: change this to if (!verify_sync_map($simple_sync_map))
     # include check that contains only arrays and each sub-array
     # has two scalar elements only
