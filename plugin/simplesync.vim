@@ -1,5 +1,9 @@
 " simplesync.vim
 "
+"
+" TODO: shell calls with `` do not return an error code. fix.
+"
+"
 " This plugin will install all files in open buffers to their destination
 " directories.
 "
@@ -111,15 +115,32 @@ sub sync_file {
 
 EOF
 
+" sync all open buffers
+function! SimpleSyncAll()
+perl <<EOF
+    foreach my $buff (VIM::Buffers()) {
+        my $num = $buff->Number();
+        VIM::DoCommand("call SimpleSyncN($num)");
+    }
+EOF
+endfunction
+
+function! SimpleSync()
+perl <<EOF
+    my $buffer_number = $curbuf->Number();
+    VIM::DoCommand("call SimpleSyncN($buffer_number)");
+EOF
+endfunction
+
 " compares the current path against each source pattern in the hash
 " map $simple_sync_map, uses the match to construct a destination path
-function! SimpleSync()
+function! SimpleSyncN(buffer_number)
 perl <<EOF
     # dont bother if there are no mappings
     return unless (@$simple_sync_map);
-    # FOREACH BUFFER:
-    my $source_path = VIM::Eval("expand('%:p:h')");
-    my $source_file = VIM::Eval("expand('%:p:t')");
+    my $buffer_number = VIM::Eval('a:buffer_number');
+    my $source_path = VIM::Eval("expand('#$buffer_number:p:h')");
+    my $source_file = VIM::Eval("expand('#$buffer_number:p:t')");
     my $install_info = resolve_install_info($source_path, $source_file);
     if ($install_info) {
         sync_file($install_info);
