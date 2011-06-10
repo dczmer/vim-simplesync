@@ -64,6 +64,14 @@ use JSON::XS;
 # local cache of path mappings
 our $simple_sync_map = [];
 
+sub get_install_info {
+    my ($buffer_number) = @_;
+    return unless (@$simple_sync_map);
+    my $source_path = VIM::Eval("expand('#$buffer_number:p:h')");
+    my $source_file = VIM::Eval("expand('#$buffer_number:p:t')");
+    return resolve_install_info($source_path, $source_file);
+}
+
 # figure out the various source and destination path parts.
 sub resolve_install_info {
     my ($source_path, $source_file) = @_;
@@ -113,6 +121,11 @@ sub sync_file {
     }
 }
 
+sub diff_file {
+    my ($install_info) = @_;
+    `diff $install_info->{full_source} $install_info->{full_dest}`;
+}
+
 EOF
 
 " sync all open buffers
@@ -136,16 +149,21 @@ endfunction
 " map $simple_sync_map, uses the match to construct a destination path
 function! SimpleSyncN(buffer_number)
 perl <<EOF
-    # dont bother if there are no mappings
-    return unless (@$simple_sync_map);
     my $buffer_number = VIM::Eval('a:buffer_number');
-    my $source_path = VIM::Eval("expand('#$buffer_number:p:h')");
-    my $source_file = VIM::Eval("expand('#$buffer_number:p:t')");
-    my $install_info = resolve_install_info($source_path, $source_file);
+    my $install_info = get_install_info($buffer_number);
     if ($install_info) {
         sync_file($install_info);
     }
-    # NEXT
+EOF
+endfunction
+
+function! SimpleSyncDiff(buffer_number)
+perl <<EOF
+    my $buffer_number = VIM::Eval('a:buffer_number');
+    my $install_info = get_install_info($buffer_number);
+    if ($install_info) {
+        diff_file($install_info);
+    }
 EOF
 endfunction
 
