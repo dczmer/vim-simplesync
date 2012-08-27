@@ -23,7 +23,7 @@
 " Example (~/simple_sync_config):
 "   [
 "       [ "main\\/perllib(\\/.*\\.pm)$",       "$FIRMWARE/lib/perl5"   ],
-"       [ "web\\/cgi(\\/.*\\.cgi)$",           "$FIRMWARE/web/cgi"     ],
+"       [ "web\\/cgi-bin(\\/.*\\.cgi)$",       "$FIRMWARE/web/cgi-bin" ],
 "       [ "web\\/js(\\/.*\\.js)$",             "$FIRMWARE/web/js"      ],
 "       [ "web\\/locale(\\/.*\\.txt)$",        "$FIRMWARE/web/locale"  ],
 "       [ "web\\/etc(\\/.*\\.xml)$",           "$FIRMWARE/etc"         ]
@@ -123,7 +123,9 @@ sub sync_file {
 
 sub diff_file {
     my ($install_info) = @_;
-    `diff $install_info->{full_source} $install_info->{full_dest}`;
+    # TODO: this does not output to VIM::Msg
+    my @lines = `diff $install_info->{full_source} $install_info->{full_dest}`;
+    VIM::Msg(join("\n" => @lines));
 }
 
 EOF
@@ -190,9 +192,6 @@ perl <<EOF
         my @json = <$FH>;
         $simple_sync_map = decode_json( join("\n", @json) );
         close($FH);
-    }
-    else {
-        VIM::Msg("SIMPLE_SYNC_CONFIG not defined. Doing nothing.");
     }
     # TODO: change this to if (!verify_sync_map($simple_sync_map))
     # include check that contains only arrays and each sub-array
