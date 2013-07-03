@@ -1,8 +1,9 @@
 " simplesync.vim
 "
+" TODO:
+" shell calls with `` do not return an error code. fix.
 "
-" TODO: shell calls with `` do not return an error code. fix.
-"
+" ABOUT:
 "
 " This plugin will install all files in open buffers to their destination
 " directories.
@@ -11,8 +12,30 @@
 " This will only copy out files that are in open buffers, and only for
 " those file which match the rules you explicitly defined in the config.
 "
-" Start by definging a map file somewhere and setting an environment variable,
-" $SIMPLE_SYNC_CONFIG to point to it.
+" SYNOPSIS:
+"
+" # refresh the simple sync mappings (done automatically on load of plugin)
+" :call SimpleSyncRefresh()
+"
+" # sync the current buffer to its destination path
+" :call SimpleSync()
+"
+" # sync a specific buffer to its destination path
+" :call SimpleSyncN($buffer_number)
+"
+" # sync ALL open buffers to their destination paths
+" :call SimpleSyncAll()
+"
+" USE:
+"
+" Enable this plugin by adding the following to your vimrc
+"
+"   let g:use_simple_sync=1
+"
+" Start by definging a map file somewhere and setting a global variable
+" g:simple_sync_config to point to it.
+"
+"   let g:simple_sync_config="~/.simple_sync_config"
 "
 " This file should contain a JSON array of path patterns that match against
 " a full file path and point to a destination directory. This is an array
@@ -29,7 +52,7 @@
 "       [ "web\\/etc(\\/.*\\.xml)$",           "$FIRMWARE/etc"         ]
 "   ]
 "
-" If the $SIMPLE_SYNC_CONFIG environment variable is not set, does not point to
+" If the g:simple_sync_config environment variable is not set, does not point to
 " an existing file, or does not contain a valid JSON array of 2-element
 " sub-arrays, then $simple_sync_map will remain an empty hash reference and no
 " path matches will succeed (does nothing).
@@ -56,6 +79,8 @@
 " the destination version. If the destination directory does not exist it will
 " be created with 'mkdir -p'.
 "
+
+if has("perl") && exists("g:use_simple_sync") && g:use_simple_sync==1 && !exists("g:simple_sync_loaded")
 
 perl <<EOF
 
@@ -178,21 +203,26 @@ endfunction
 " if we fail to get anything useful out of that file then set
 " $simple_sync_map to an empty hash.
 function! SimpleSyncRefresh()
+    if !exists("g:simple_sync_config")
+        echo "No simple_sync_config set. Functionality disabled."
+    else
 perl <<EOF
+    my $config_path = VIM::Eval('g:simple_sync_config');
+    unless ($config_path && -e $config_path) {
+        VIM::Msg("No g:simple_sync_config set.");
+        return;
+    }
     $simple_sync_map = [];
     # load pattern map json from $SIMPLE_SYNC_CONFIG
-    my $config_path = $ENV{"SIMPLE_SYNC_CONFIG"};
-    if ($config_path) {
-        open(my $FH, "<", $config_path);
-        if (!$FH) {
-            $simple_sync_map = [];
-            VIM::Msg($!);
-            return;
-        }
-        my @json = <$FH>;
-        $simple_sync_map = decode_json( join("\n", @json) );
-        close($FH);
+    open(my $FH, "<", $config_path);
+    if (!$FH) {
+        $simple_sync_map = [];
+        VIM::Msg("Failed to open simple_sync_config file: $config_path.");
+        return;
     }
+    my @json = <$FH>;
+    $simple_sync_map = decode_json( join("\n", @json) );
+    close($FH);
     # TODO: change this to if (!verify_sync_map($simple_sync_map))
     # include check that contains only arrays and each sub-array
     # has two scalar elements only
@@ -200,7 +230,12 @@ perl <<EOF
         $simple_sync_map = [];
     }
 EOF
+    endif
 endfunction
 
 " initialize the path map
 call SimpleSyncRefresh()
+
+let g:simple_sync_loaded=1
+
+endif " !exists g:simple_sync_loaded
